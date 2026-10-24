@@ -95,4 +95,3 @@ In CI: open a PR that touches `infra/`. The job summary shows the dev and prod p
 - Add a permissions boundary to the apply roles.
 - Customize the OIDC `sub` claim template (e.g. add `job_workflow_ref`) to pin roles to a specific workflow file.
 - Fork PRs get no OIDC token, so plan won't run for them. That's expected.
-- Bump the action versions in `_terraform.yml` (`checkout@v5`, `configure-aws-credentials@v5`, `setup-terraform@v3`) and `TF_VERSION` if newer ones exist. I couldn't check them from this environment.

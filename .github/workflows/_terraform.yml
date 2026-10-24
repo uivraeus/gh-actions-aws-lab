@@ -29,14 +29,14 @@ jobs:
     # No `environment:` here on purpose -> OIDC sub is repo:OWNER/REPO:pull_request,
     # which is the only subject the plan role trusts.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: aws-actions/configure-aws-credentials@v5
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.TF_NAME_PREFIX }}-${{ inputs.environment }}-plan
           aws-region: ${{ vars.AWS_REGION }}
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
@@ -77,14 +77,14 @@ jobs:
       group: tf-apply-${{ inputs.environment }}
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: aws-actions/configure-aws-credentials@v5
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.TF_NAME_PREFIX }}-${{ inputs.environment }}-apply
           aws-region: ${{ vars.AWS_REGION }}
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
