@@ -1,0 +1,45 @@
+name: terraform
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/*terraform*.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/*terraform*.yml"
+  workflow_dispatch:
+
+# Called workflows can't get more than the caller grants.
+permissions:
+  contents: read
+  id-token: write # OIDC token for AWS
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, prod]
+    uses: ./.github/workflows/_terraform.yml
+    with:
+      environment: ${{ matrix.environment }}
+      mode: plan
+
+  apply-dev:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/_terraform.yml
+    with:
+      environment: dev
+      mode: apply
+
+  apply-prod:
+    needs: apply-dev
+    uses: ./.github/workflows/_terraform.yml
+    with:
+      environment: prod
+      mode: apply

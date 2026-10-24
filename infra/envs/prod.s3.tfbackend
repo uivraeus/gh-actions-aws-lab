@@ -1,0 +1,4 @@
+bucket       = "ghalab-tfstate-381492275350"
+key          = "envs/prod/terraform.tfstate"
+region       = "eu-north-1"
+use_lockfile = true

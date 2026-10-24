@@ -1,0 +1,108 @@
+# Reusable workflow: one environment, either plan (read-only role) or apply (write role).
+#
+# Role ARNs are derived by convention from repo variables:
+#   arn:aws:iam::<AWS_ACCOUNT_ID>:role/<TF_NAME_PREFIX>-<env>-{plan,apply}
+name: terraform (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        required: true
+      mode:
+        description: plan | apply
+        type: string
+        required: true
+
+env:
+  TF_VERSION: "1.17.0"
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  WORKDIR: infra
+
+jobs:
+  plan:
+    if: inputs.mode == 'plan'
+    name: plan (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    # No `environment:` here on purpose -> OIDC sub is repo:OWNER/REPO:pull_request,
+    # which is the only subject the plan role trusts.
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.TF_NAME_PREFIX }}-${{ inputs.environment }}-plan
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: fmt
+        run: terraform -chdir=$WORKDIR fmt -check -recursive
+
+      - name: init
+        run: terraform -chdir=$WORKDIR init -backend-config=envs/${{ inputs.environment }}.s3.tfbackend
+
+      - name: validate
+        run: terraform -chdir=$WORKDIR validate
+
+      - name: plan
+        run: |
+          terraform -chdir=$WORKDIR plan \
+            -var-file=envs/${{ inputs.environment }}.tfvars \
+            -lock-timeout=5m -out=tfplan
+
+      - name: summary
+        if: always()
+        run: |
+          {
+            echo "### Plan: \`${{ inputs.environment }}\`"
+            echo '```'
+            terraform -chdir=$WORKDIR show -no-color tfplan 2>&1 | tail -c 60000 || echo "(no plan file)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    if: inputs.mode == 'apply'
+    name: apply (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    # The environment is what lets this job get the apply role (sub = ...:environment:<env>),
+    # and its deployment-branch policy (main only) + optional reviewers gate it.
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: tf-apply-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/${{ vars.TF_NAME_PREFIX }}-${{ inputs.environment }}-apply
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: init
+        run: terraform -chdir=$WORKDIR init -backend-config=envs/${{ inputs.environment }}.s3.tfbackend
+
+      - name: plan
+        run: |
+          terraform -chdir=$WORKDIR plan \
+            -var-file=envs/${{ inputs.environment }}.tfvars \
+            -lock-timeout=5m -out=tfplan
+          {
+            echo "### Applied: \`${{ inputs.environment }}\`"
+            echo '```'
+            terraform -chdir=$WORKDIR show -no-color tfplan | tail -c 60000
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: apply
+        run: terraform -chdir=$WORKDIR apply -lock-timeout=5m tfplan
