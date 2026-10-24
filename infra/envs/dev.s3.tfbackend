@@ -1,5 +1,4 @@
-# Fill in from: terraform -chdir=bootstrap output -json backend_files
-bucket       = "ghalab-tfstate-ACCOUNT_ID"
+bucket       = "ghalab-tfstate-381492275350"
 key          = "envs/dev/terraform.tfstate"
 region       = "eu-north-1"
 use_lockfile = true
