@@ -26,12 +26,12 @@ Makefile              local helpers: make plan ENV=dev
 
 ## How the roles are kept apart
 
-GitHub's OIDC token carries a `sub` claim that depends on how the job runs:
+GitHub's OIDC token carries a `sub` claim that depends on how the job runs. `<sub-prefix>` is the repo's immutable subject prefix, `repo:OWNER@OWNER_ID/REPO@REPO_ID`. It's the default for repos created after 2026-07-15. Because of the numeric IDs, a re-created or transferred repo with the same name won't match.
 
 | Job | `sub` | Trusted by |
 | --- | --- | --- |
-| PR job, no `environment:` | `repo:OWNER/REPO:pull_request` | `<prefix>-<env>-plan` |
-| Job with `environment: dev` | `repo:OWNER/REPO:environment:dev` | `<prefix>-dev-apply` |
+| PR job, no `environment:` | `<sub-prefix>:pull_request` | `<prefix>-<env>-plan` |
+| Job with `environment: dev` | `<sub-prefix>:environment:dev` | `<prefix>-dev-apply` |
 
 Each GitHub environment only accepts deployments from `main` (set by `gh-setup.sh`). A PR that edits the workflow to ask for the apply role still fails: its job can't enter the environment, so it never gets a token with the environment `sub`.
 
@@ -54,7 +54,7 @@ Notes:
 ```sh
 export AWS_PROFILE=my-admin && aws sso login
 cd bootstrap
-cp terraform.tfvars.example terraform.tfvars   # set github_repository, region
+cp terraform.tfvars.example terraform.tfvars   # set github_oidc_sub_prefix, region
 terraform init
 terraform apply
 ```

@@ -30,9 +30,10 @@ data "aws_iam_openid_connect_provider" "github" {
 # ---------------------------------------------------------------------------
 # Trust policies
 #
-# The OIDC `sub` claim is what separates the two roles:
-#   - a job WITHOUT `environment:` triggered by a PR  -> repo:OWNER/REPO:pull_request
-#   - a job WITH `environment: dev`                   -> repo:OWNER/REPO:environment:dev
+# The OIDC `sub` claim is what separates the two roles (<prefix> is the immutable
+# repo:OWNER@OWNER_ID/REPO@REPO_ID, so a re-created repo with the same name won't match):
+#   - a job WITHOUT `environment:` triggered by a PR  -> <prefix>:pull_request
+#   - a job WITH `environment: dev`                   -> <prefix>:environment:dev
 #
 # The apply role only trusts the environment subject, and the GitHub environment
 # only allows deployments from `main` (see gh-setup.sh). So a PR that edits the
@@ -57,7 +58,7 @@ data "aws_iam_policy_document" "trust_plan" {
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values   = ["repo:${var.github_repository}:pull_request"]
+      values   = ["${var.github_oidc_sub_prefix}:pull_request"]
     }
   }
 }
@@ -82,7 +83,7 @@ data "aws_iam_policy_document" "trust_apply" {
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values   = ["repo:${var.github_repository}:environment:${each.key}"]
+      values   = ["${var.github_oidc_sub_prefix}:environment:${each.key}"]
     }
   }
 }

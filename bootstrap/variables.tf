@@ -10,9 +10,18 @@ variable "name_prefix" {
   default     = "ghalab"
 }
 
-variable "github_repository" {
-  description = "GitHub repository in OWNER/REPO form, used in the OIDC trust policies."
+variable "github_oidc_sub_prefix" {
+  description = <<-EOT
+    The repo's OIDC subject claim prefix (immutable format), used in the trust policies.
+    Shown under Settings > Actions > OIDC, or:
+      gh api repos/OWNER/REPO/actions/oidc/customization/sub -q .sub_claim_prefix
+  EOT
   type        = string
+
+  validation {
+    condition     = can(regex("^repo:[^@/:]+@[0-9]+/[^@/:]+@[0-9]+$", var.github_oidc_sub_prefix))
+    error_message = "Expected the immutable format repo:OWNER@OWNER_ID/REPO@REPO_ID."
+  }
 }
 
 variable "environments" {

@@ -1,7 +1,8 @@
-github_repository = "OWNER/gh-actions-aws-lab"
-region            = "eu-north-1"
-name_prefix       = "ghalab"
-environments      = ["dev", "prod"]
+# Settings > Actions > OIDC, or: gh api repos/OWNER/REPO/actions/oidc/customization/sub -q .sub_claim_prefix
+github_oidc_sub_prefix = "repo:OWNER@OWNER_ID/gh-actions-aws-lab@REPO_ID"
+region                 = "eu-north-1"
+name_prefix            = "ghalab"
+environments           = ["dev", "prod"]
 
 # Set to false if the account already has the token.actions.githubusercontent.com provider
 create_oidc_provider = true
