@@ -1,0 +1,7 @@
+github_repository = "OWNER/gh-actions-aws-lab"
+region            = "eu-north-1"
+name_prefix       = "ghalab"
+environments      = ["dev", "prod"]
+
+# Set to false if the account already has the token.actions.githubusercontent.com provider
+create_oidc_provider = true
