@@ -46,12 +46,23 @@ Notes:
 - Locking uses S3-native lock files (`use_lockfile = true`, Terraform ≥ 1.10), so there's no DynamoDB table. The plan role can still write the `.tflock` object. To make plan strictly read-only, remove the `StateLock` statement from the plan policy and run `plan -lock=false`.
 - The workload permissions follow a naming convention. Anything you add in `infra/` has to fit inside it, or you have to extend both role policies in `bootstrap/iam.tf`. That's deliberate: adding a new resource type means a bootstrap change.
 - The plan role can only read its own env's state. The `dev` plan role can't read `prod` state.
+- Fork PRs get no OIDC token, so their plan jobs fail to assume the plan role. That's expected: outside contributors never get AWS credentials.
+
+## Prerequisites
+
+- **This repo on GitHub, under your own account.** The trust policies are tied to its owner and repo IDs, so a fork or copy needs its own bootstrap.
+  - **Public**, if you're on the Free plan. Deployment-branch policies need a public repo (or Pro/Team), and required reviewers need a public repo (or Enterprise).
+  - **Immutable OIDC subject claims enabled** (Settings → Actions → OIDC). They're on by default for repos created or renamed after 2026-07-15, and older repos can opt in.
+- **An AWS account and an admin profile** you can `aws sso login` with.
+- **Tools:** Terraform ≥ 1.10, the AWS CLI, `gh` (authenticated, with admin on the repo) and `jq`.
 
 ## Setup
 
 ### 1. Bootstrap AWS (admin creds, local)
 
 ```sh
+gh api repos/OWNER/REPO/actions/oidc/customization/sub -q .sub_claim_prefix   # value for github_oidc_sub_prefix
+
 export AWS_PROFILE=my-admin && aws sso login
 cd bootstrap
 cp terraform.tfvars.example terraform.tfvars   # set github_oidc_sub_prefix, region
@@ -65,12 +76,11 @@ Optionally move the bootstrap state into the new bucket (see the comment in `boo
 
 ### 2. Point infra at the bucket
 
-Copy `terraform output -json backend_files` into `infra/envs/dev.s3.tfbackend` and `prod.s3.tfbackend`. The only values to replace are the bucket name (it contains the account ID) and the region.
+Make `infra/envs/dev.s3.tfbackend` and `prod.s3.tfbackend` match `terraform output -json backend_files`. The bucket name contains the account ID, so it differs per account.
 
 ### 3. Configure GitHub
 
 ```sh
-git remote add origin git@github.com:OWNER/REPO.git && git push -u origin main
 bootstrap/gh-setup.sh OWNER/REPO               # add --prod-reviewer for an approval gate on prod
 ```
 
@@ -91,7 +101,7 @@ In CI: open a PR that touches `infra/`. The job summary shows the dev and prod p
 ## Things to try next
 
 - Make plan output a PR comment (needs `pull-requests: write`).
-- Use separate AWS accounts per env: run bootstrap per account, use a separate state bucket per env, and set `AWS_ACCOUNT_ID` as an environment variable instead of a repo variable.
-- Add a permissions boundary to the apply roles.
+- Remove the skipped-check noise on PRs: each call to `_terraform.yml` brings both its `plan` and `apply` jobs, and one is always skipped. Fixed inner job names, or separate plan/apply workflows, would fix that.
+- Set `role-session-name` (e.g. `gha-<run_id>-<attempt>`) so CloudTrail entries can be traced to a workflow run, instead of all showing `GitHubActions`.
+- Move the bootstrap state from the local file into the state bucket.
 - Customize the OIDC `sub` claim template (e.g. add `job_workflow_ref`) to pin roles to a specific workflow file.
-- Fork PRs get no OIDC token, so plan won't run for them. That's expected.
