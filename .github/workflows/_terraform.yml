@@ -26,8 +26,8 @@ jobs:
     if: inputs.mode == 'plan'
     name: plan (${{ inputs.environment }})
     runs-on: ubuntu-latest
-    # No `environment:` here on purpose -> OIDC sub is repo:OWNER/REPO:pull_request,
-    # which is the only subject the plan role trusts.
+    # No `environment:` here on purpose -> OIDC sub is <sub-prefix>:pull_request (immutable
+    # repo:OWNER@ID/REPO@ID, see bootstrap github_oidc_sub_prefix), the only subject the plan role trusts.
     steps:
       - uses: actions/checkout@v7
 
