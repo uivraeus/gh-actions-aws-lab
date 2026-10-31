@@ -105,3 +105,14 @@ In CI: open a PR that touches `infra/`. The job summary shows the dev and prod p
 - Set `role-session-name` (e.g. `gha-<run_id>-<attempt>`) so CloudTrail entries can be traced to a workflow run, instead of all showing `GitHubActions`.
 - Move the bootstrap state from the local file into the state bucket.
 - Customize the OIDC `sub` claim template (e.g. add `job_workflow_ref`) to pin roles to a specific workflow file.
+- Harden the repo and codify all its settings in `gh-setup.sh`, instead of relying on manual GUI toggles:
+  - a ruleset on `main`: require a PR and a passing plan check, block force pushes and deletion, no bypass;
+  - the settings that are currently set by hand: collaborators-only PR creation, squash-only merges, delete branch on merge, auto-merge;
+  - fork PR workflow approval for all external contributors.
+
+  Required checks also need a single `plan-result` summary job (with `if: always()`), and the path filter on `pull_request` has to go. Otherwise PRs that don't touch `infra/` could never be merged.
+- Prod: approve the actual plan. Today the reviewer approves before the apply job has planned anything, so they never see the plan that gets applied. Instead:
+  - a plan job on `main` saves the plan as an artifact, and the reviewer approves that plan;
+  - the gated apply job then does a fresh plan (with refresh), compares its `resource_changes` with the approved plan, fails on any difference, and otherwise applies the fresh plan.
+
+  A completed apply then means state, code and real-world drift all matched what was approved. The remaining few-second window between that fresh plan and the apply is an accepted risk.
